@@ -1,73 +1,111 @@
-# React + TypeScript + Vite
+# User Management Dashboard
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Небольшое CRUD-приложение для управления пользователями. Данные одного
+пользователя специально разделены между тремя разными state-менеджерами, а
+перед выводом в таблицу объединяются в одну запись.
 
-Currently, two official plugins are available:
+## Возможности
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+- просмотр списка пользователей и подробной информации о каждом пользователе;
+- поиск по ID, имени, фамилии, возрасту, профессии и адресу;
+- добавление, редактирование и удаление пользователей через модальные окна;
+- переключение статуса пользователя между `Active` и `Inactive`;
+- сохранение данных в `localStorage`;
+- адаптивная таблица и анимированные элементы интерфейса.
 
-## React Compiler
+## Выполненные критерии CRUD
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+| Критерий | Реализация |
+| --- | --- |
+| **Create** | Добавление пользователя кнопкой `Add user`. Новая запись одновременно создается во всех трех хранилищах. |
+| **Read** | Вывод пользователей в таблице, поиск и просмотр полной информации в окне `User details`. |
+| **Update** | Редактирование всех полей пользователя и отдельное переключение его статуса. |
+| **Delete** | Удаление пользователя после подтверждения сразу из всех трех хранилищ. |
 
-## Expanding the ESLint configuration
+Дополнительно реализованы валидация обязательных полей, счетчик найденных
+пользователей и сообщение при пустом результате поиска.
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+## Стек
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+- **React 19** и **TypeScript**;
+- **Vite**;
+- **Redux Toolkit** и **React Redux**;
+- **Zustand**;
+- **Jotai**;
+- **Tailwind CSS 4**;
+- **shadcn/ui**-компоненты на базе Base UI;
+- **Lucide React** для иконок;
+- **ESLint**.
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+В зависимостях также установлен **Axios**, но в текущей реализации запросов к
+серверному API нет: приложение работает с локальными начальными данными и
+`localStorage`.
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+## Как объединяются данные из разных state-менеджеров
+
+Каждое хранилище отвечает только за свою часть данных пользователя:
+
+| Хранилище | Поля |
+| --- | --- |
+| Redux Toolkit | `id`, `name`, `age` |
+| Zustand | `id`, `surname`, `job` |
+| Jotai | `id`, `address`, `status` |
+
+Общим ключом является `id`. Массив из Redux используется как основной список
+пользователей. Для каждого пользователя приложение находит записи с таким же
+`id` в Zustand и Jotai, после чего собирает единый объект для таблицы:
+
+```ts
+const users = reduxUsers.map((reduxUser) => {
+  const zustandUser = zustandUsers.find((user) => user.id === reduxUser.id)
+  const jotaiUser = jotaiUsers.find((user) => user.id === reduxUser.id)
+
+  return {
+    ...reduxUser,
+    surname: zustandUser?.surname ?? '',
+    job: zustandUser?.job ?? '',
+    address: jotaiUser?.address ?? '',
+    status: jotaiUser?.status ?? false,
+  }
+})
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+Добавление, редактирование и удаление синхронно выполняются во всех трех
+хранилищах с одним и тем же `id`. Поэтому разделенные части пользователя
+остаются связанными.
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+## Хранение данных
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+Все изменения сохраняются после перезагрузки страницы:
+
+- Redux записывается в `localStorage` через `store.subscribe`;
+- Zustand использует middleware `persist`;
+- Jotai использует `atomWithStorage`.
+
+Ключи хранилищ: `rrexp2-redux-users`, `rrexp2-zustand-users` и
+`rrexp2-jotai-users`.
+
+## Структура проекта
+
+```text
+src/
+├── components/ui/   # UI-компоненты Button и Dialog
+├── lib/utils.ts     # объединение CSS-классов
+├── store/store.tsx  # Redux, Zustand, Jotai и начальные данные
+├── App.tsx          # интерфейс, CRUD и объединение данных
+├── index.css        # Tailwind CSS и анимации
+└── main.tsx         # точка входа и Redux Provider
+```
+
+## Запуск проекта
+
+```bash
+npm install
+npm run dev
+```
+
+Проверка кода:
+
+```bash
+npm run lint
 ```

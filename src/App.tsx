@@ -72,7 +72,7 @@ function App() {
     let address = ''
     let status = false
 
-    if (zustandUser) {
+     if (zustandUser) {
       surname = zustandUser.surname
       job = zustandUser.job
     }
